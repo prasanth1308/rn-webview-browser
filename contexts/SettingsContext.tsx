@@ -1,75 +1,82 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-import { DEFAULT_HOME_URL, DEFAULT_PRESET_URLS, STORAGE_KEYS } from '@/constants/defaults';
+import {
+  DEFAULT_BASE_URL,
+  DEFAULT_LOGIN_PATH,
+  DEFAULT_TABS,
+  NavTab,
+  STORAGE_KEYS,
+} from '@/constants/defaults';
 
-export type PresetUrl = { label: string; url: string };
 export type UserProfile = { name: string };
 
 type SettingsState = {
-  presetUrls: PresetUrl[];
+  baseUrl: string;
+  loginPath: string;
   notificationEnabled: boolean;
   profile: UserProfile;
   clearCacheSignal: number;
+  logoutSignal: number;
   isLoaded: boolean;
   expoPushToken: string | null;
 };
 
 type SettingsContextValue = SettingsState & {
-  addPresetUrl: (entry: PresetUrl) => Promise<void>;
-  removePresetUrl: (url: string) => Promise<void>;
+  tabs: NavTab[];
+  setBaseUrl: (url: string) => Promise<void>;
+  setLoginPath: (path: string) => Promise<void>;
   setNotificationEnabled: (enabled: boolean) => Promise<void>;
   setProfile: (profile: UserProfile) => Promise<void>;
   clearWebViewCache: () => void;
+  logout: () => void;
   setExpoPushToken: (token: string) => void;
-  homeUrl: string;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SettingsState>({
-    presetUrls: DEFAULT_PRESET_URLS,
+    baseUrl: DEFAULT_BASE_URL,
+    loginPath: DEFAULT_LOGIN_PATH,
     notificationEnabled: false,
     profile: { name: '' },
     clearCacheSignal: 0,
+    logoutSignal: 0,
     isLoaded: false,
     expoPushToken: null,
   });
 
   useEffect(() => {
     async function load() {
-      const [rawUrls, rawEnabled, rawProfile] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.PRESET_URLS),
+      const [rawBaseUrl, rawLoginPath, rawEnabled, rawProfile] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.BASE_URL),
+        AsyncStorage.getItem(STORAGE_KEYS.LOGIN_PATH),
         AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_ENABLED),
         AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE),
       ]);
-
       setState(prev => ({
         ...prev,
-        presetUrls: rawUrls ? JSON.parse(rawUrls) : DEFAULT_PRESET_URLS,
+        baseUrl:            rawBaseUrl   ?? DEFAULT_BASE_URL,
+        loginPath:          rawLoginPath ?? DEFAULT_LOGIN_PATH,
         notificationEnabled: rawEnabled === 'true',
-        profile: rawProfile ? JSON.parse(rawProfile) : { name: '' },
-        isLoaded: true,
+        profile:            rawProfile ? JSON.parse(rawProfile) : { name: '' },
+        isLoaded:           true,
       }));
     }
     load();
   }, []);
 
-  const addPresetUrl = useCallback(async (entry: PresetUrl) => {
-    setState(prev => {
-      const next = [...prev.presetUrls, entry];
-      AsyncStorage.setItem(STORAGE_KEYS.PRESET_URLS, JSON.stringify(next));
-      return { ...prev, presetUrls: next };
-    });
+  const setBaseUrl = useCallback(async (url: string) => {
+    const trimmed = url.trim();
+    await AsyncStorage.setItem(STORAGE_KEYS.BASE_URL, trimmed);
+    setState(prev => ({ ...prev, baseUrl: trimmed }));
   }, []);
 
-  const removePresetUrl = useCallback(async (url: string) => {
-    setState(prev => {
-      const next = prev.presetUrls.filter(p => p.url !== url);
-      AsyncStorage.setItem(STORAGE_KEYS.PRESET_URLS, JSON.stringify(next));
-      return { ...prev, presetUrls: next };
-    });
+  const setLoginPath = useCallback(async (path: string) => {
+    const trimmed = path.trim();
+    await AsyncStorage.setItem(STORAGE_KEYS.LOGIN_PATH, trimmed);
+    setState(prev => ({ ...prev, loginPath: trimmed }));
   }, []);
 
   const setNotificationEnabled = useCallback(async (enabled: boolean) => {
@@ -86,23 +93,26 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, clearCacheSignal: prev.clearCacheSignal + 1 }));
   }, []);
 
+  const logout = useCallback(() => {
+    setState(prev => ({ ...prev, logoutSignal: prev.logoutSignal + 1 }));
+  }, []);
+
   const setExpoPushToken = useCallback((token: string) => {
     setState(prev => ({ ...prev, expoPushToken: token }));
   }, []);
-
-  const homeUrl = state.presetUrls[0]?.url ?? DEFAULT_HOME_URL;
 
   return (
     <SettingsContext.Provider
       value={{
         ...state,
-        addPresetUrl,
-        removePresetUrl,
+        tabs: DEFAULT_TABS,
+        setBaseUrl,
+        setLoginPath,
         setNotificationEnabled,
         setProfile,
         clearWebViewCache,
+        logout,
         setExpoPushToken,
-        homeUrl,
       }}>
       {children}
     </SettingsContext.Provider>

@@ -28,6 +28,8 @@ const MAPPING = {
   'person.fill': 'person',
   'bell.fill': 'notifications',
   'trash.fill': 'delete',
+  'creditcard.fill': 'credit-card',
+  'dollarsign.circle.fill': 'monetization-on',
 } as IconMapping;
 
 /**

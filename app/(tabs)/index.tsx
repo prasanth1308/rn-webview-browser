@@ -1,98 +1,105 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import WebView, { WebViewNavigation } from 'react-native-webview';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { BrowserBar } from '@/components/browser/BrowserBar';
+import { ProgressBar } from '@/components/browser/ProgressBar';
+import { useInAppNotification } from '@/hooks/use-in-app-notification';
+import { useSettings } from '@/hooks/use-settings';
 
-export default function HomeScreen() {
+export default function BrowserScreen() {
+  const { presetUrls, homeUrl, clearCacheSignal, isLoaded } = useSettings();
+  const { showNotification } = useInAppNotification();
+
+  const [currentUrl, setCurrentUrl] = useState(homeUrl);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const webViewRef = useRef<WebView>(null);
+
+  // Update initial URL once settings are loaded from storage
+  useEffect(() => {
+    if (isLoaded) {
+      setCurrentUrl(homeUrl);
+    }
+  }, [isLoaded, homeUrl]);
+
+  // Respond to clear cache signal from Settings
+  useEffect(() => {
+    if (clearCacheSignal > 0 && webViewRef.current) {
+      webViewRef.current.clearCache(true);
+      showNotification('Cache cleared', 'success');
+    }
+  }, [clearCacheSignal, showNotification]);
+
+  function handleNavigationStateChange(navState: WebViewNavigation) {
+    setCanGoBack(navState.canGoBack);
+    setCanGoForward(navState.canGoForward);
+    if (navState.url) setCurrentUrl(navState.url);
+  }
+
+  // WebView is not supported on web platform
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.container}>
+        <BrowserBar
+          url={currentUrl}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          presetUrls={presetUrls}
+          onBack={() => webViewRef.current?.goBack()}
+          onForward={() => webViewRef.current?.goForward()}
+          onReload={() => webViewRef.current?.reload()}
+          onHome={() => setCurrentUrl(homeUrl)}
+          onBookmarkSelect={url => setCurrentUrl(url)}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <View style={styles.webviewContainer}>
+          <ProgressBar progress={loadingProgress} visible={isLoading} />
+          <WebView
+            ref={webViewRef}
+            source={{ uri: currentUrl }}
+            style={styles.webview}
+            onNavigationStateChange={handleNavigationStateChange}
+            onLoadProgress={({ nativeEvent }) =>
+              setLoadingProgress(nativeEvent.progress)
+            }
+            onLoadStart={() => {
+              setIsLoading(true);
+              setLoadingProgress(0);
+            }}
+            onLoadEnd={() => {
+              setIsLoading(false);
+              setLoadingProgress(1);
+            }}
+            allowsBackForwardNavigationGestures
+            sharedCookiesEnabled
+          />
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  safe: {
+    flex: 1,
+    backgroundColor: '#fff',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  container: {
+    flex: 1,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  webviewContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  webview: {
+    flex: 1,
   },
 });

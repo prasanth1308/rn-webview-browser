@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { BackHandler, Platform, StyleSheet, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -28,6 +28,7 @@ export default function MainScreen() {
   const [webViewUrl, setWebViewUrl] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
 
   // Seed initial URL once AsyncStorage has loaded
   useEffect(() => {
@@ -82,8 +83,24 @@ export default function MainScreen() {
     setWebViewUrl(baseUrl + loginPath);
   }, [baseUrl, loginPath]);
 
+  // Android hardware back button: go back in WebView history, or minimize if at root
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const onBackPress = () => {
+      if (canGoBack) {
+        webViewRef.current?.goBack();
+        return true; // consumed — don't minimize
+      }
+      return false; // let Android minimize the app
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => sub.remove();
+  }, [canGoBack]);
+
   function handleNavigationStateChange(navState: WebViewNavigation) {
     if (!navState.url) return;
+
+    setCanGoBack(navState.canGoBack);
 
     try {
       const pathname = new URL(navState.url).pathname;

@@ -5,21 +5,21 @@ export type NavTab = {
   icon?: string; // SF Symbol name (iOS) — optional; falls back to first char of name
 };
 
-export const DEFAULT_BASE_URL = "https://solaiexp.vercel.app";
-export const DEFAULT_LOGIN_PATH = "/signin";
+export const DEFAULT_BASE_URL = "https://staging.app.tradebidauctions.com";
+export const DEFAULT_LOGIN_PATH = "/login";
 
 export const DEFAULT_TABS: NavTab[] = [
-  { id: "home", name: "Home", path: "/", icon: "house.fill" },
+  { id: "search", name: "Search", path: "/", icon: "house.fill" },
   {
-    id: "expenses",
-    name: "Expense",
-    path: "/expenses",
+    id: "outbid",
+    name: "Outbid",
+    path: "/dashboard/outbid",
     icon: "creditcard.fill",
   },
   {
-    id: "income",
-    name: "Income",
-    path: "/income",
+    id: "winning",
+    name: "Winning",
+    path: "/dashboard/winning",
     icon: "dollarsign.circle.fill",
   },
 ];
